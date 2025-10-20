@@ -228,5 +228,127 @@
         .suggestion-item:hover, .suggestion-item.active {
             background-color: #eff6ff; /* blue-100 */
         }
+
+        /* Estilos para controles de coluna */
+        .column-control-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: #f8fafc;
+            transition: all 0.2s ease;
+        }
+
+        .column-control-item:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+
+        .column-control-item.hidden {
+            opacity: 0.5;
+            background: #f1f5f9;
+        }
+
+        .column-checkbox {
+            margin-right: 8px;
+        }
+
+        .column-label {
+            flex: 1;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .column-width-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .column-width-input {
+            width: 80px;
+            padding: 4px 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .column-width-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 1px #3b82f6;
+        }
+
+        .resize-handle {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 4px;
+            height: 100%;
+            background: transparent;
+            cursor: col-resize;
+            z-index: 10;
+        }
+
+        .resize-handle:hover {
+            background: #3b82f6;
+        }
+
+        .resize-handle.active {
+            background: #1d4ed8;
+        }
+
+        .table-header {
+            position: relative;
+        }
+
+        .table-header.resizing {
+            user-select: none;
+        }
+
+        .column-hidden {
+            display: none !important;
+        }
+
+        /* Estilos para redimensionamento de colunas */
+        body.resizing {
+            cursor: col-resize !important;
+            user-select: none;
+        }
+
+        body.resizing * {
+            cursor: col-resize !important;
+        }
+
+        .table-header {
+            position: relative;
+        }
+
+        .table-header .resize-handle {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 4px;
+            height: 100%;
+            background: transparent;
+            cursor: col-resize;
+            z-index: 10;
+        }
+
+        .table-header .resize-handle:hover {
+            background: #3b82f6;
+        }
+
+        .table-header .resize-handle.active {
+            background: #1d4ed8;
+        }
+
+        .table-header:hover .resize-handle {
+            background: #94a3b8;
+        }
    
 

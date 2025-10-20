@@ -12,6 +12,10 @@
             let statistics = {};
             let checklistData = [];
             let checklistChecked = new Set();
+            let columnSettings = {
+                visibility: {},
+                widths: {}
+            };
 
             // --- Referências aos Elementos do DOM ---
             const fileInput = document.getElementById('fileInput');
@@ -57,6 +61,9 @@
             document.getElementById('create-checklist').addEventListener('click', createChecklist);
             document.getElementById('clear-all-widgets').addEventListener('click', clearAllWidgets);
             
+            // Event listener para controles de coluna
+            document.getElementById('column-controls').addEventListener('click', openColumnControlsModal);
+            
             document.getElementById('create-predefined-widgets').addEventListener('click', () => {
                 if (Object.keys(statistics).length === 0) {
                     alert("Por favor, carregue um arquivo JSON primeiro.");
@@ -74,6 +81,9 @@
             });
             
             document.getElementById('edit-widget-form').addEventListener('submit', handleEditWidget);
+            
+            // Carregar configurações de coluna ao inicializar
+            loadColumnSettings();
 
             // --- Lógica das Abas ---
             function switchTab(tabName) {
@@ -516,6 +526,324 @@
                     }
                 });
             }
+
+            // --- Funções de Controle de Colunas ---
+            function openColumnControlsModal() {
+                if (headers.length === 0) {
+                    alert("Nenhuma coluna disponível. Carregue um arquivo JSON primeiro.");
+                    return;
+                }
+                
+                // Carregar configurações salvas
+                loadColumnSettings();
+                
+                // Criar controles de visibilidade
+                createVisibilityControls();
+                
+                // Criar controles de largura
+                createWidthControls();
+                
+                // Mostrar modal
+                document.getElementById('column-controls-modal').classList.remove('hidden');
+            }
+            
+            function closeColumnControlsModal() {
+                document.getElementById('column-controls-modal').classList.add('hidden');
+            }
+            
+            function createVisibilityControls() {
+                const container = document.getElementById('column-visibility-controls');
+                container.innerHTML = '';
+                
+                const displayHeaders = getDisplayHeaders();
+                
+                displayHeaders.forEach((header, index) => {
+                    const isVisible = columnSettings.visibility[header] !== false;
+                    
+                    const controlItem = document.createElement('div');
+                    controlItem.className = `column-control-item ${!isVisible ? 'hidden' : ''}`;
+                    
+                    controlItem.innerHTML = `
+                        <div class="flex items-center">
+                            <input type="checkbox" class="column-checkbox" ${isVisible ? 'checked' : ''} 
+                                   onchange="toggleColumnVisibility('${header}', this.checked)">
+                            <span class="column-label">${header}</span>
+                        </div>
+                    `;
+                    
+                    container.appendChild(controlItem);
+                });
+            }
+            
+            function createWidthControls() {
+                const container = document.getElementById('column-width-controls');
+                container.innerHTML = '';
+                
+                const displayHeaders = getDisplayHeaders();
+                
+                displayHeaders.forEach((header, index) => {
+                    const currentWidth = columnSettings.widths[header] || 'auto';
+                    
+                    const controlItem = document.createElement('div');
+                    controlItem.className = 'column-control-item';
+                    
+                    controlItem.innerHTML = `
+                        <div class="flex items-center justify-between w-full">
+                            <span class="column-label">${header}</span>
+                            <div class="column-width-control">
+                                <input type="number" class="column-width-input" 
+                                       value="${currentWidth === 'auto' ? '' : currentWidth}" 
+                                       placeholder="auto" min="50" max="500"
+                                       onchange="setColumnWidth('${header}', this.value)">
+                                <span class="text-xs text-slate-500">px</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(controlItem);
+                });
+            }
+            
+            function getDisplayHeaders() {
+                const primaryColumns = ['user.nome_completo', 'user.telefone_celular'];
+                const tagsColumn = 'user.tags';
+                const statusBooleans = ['isTaggedUser', 'isValidUser', 'hasFavoriteStation'];
+                const allOtherColumns = headers.filter(h => 
+                    !primaryColumns.includes(h) && 
+                    !statusBooleans.includes(h) &&
+                    h !== tagsColumn
+                );
+                
+                return ['Nome', 'Telefone', 'Tags', 'Tagged', 'Válido', 'Posto Favorito', ...allOtherColumns.map(h => h.replace('user.', ''))];
+            }
+            
+            function toggleColumnVisibility(header, isVisible) {
+                columnSettings.visibility[header] = isVisible;
+                
+                // Atualizar visual do controle
+                const controlItem = event.target.closest('.column-control-item');
+                if (isVisible) {
+                    controlItem.classList.remove('hidden');
+                } else {
+                    controlItem.classList.add('hidden');
+                }
+            }
+            
+            function setColumnWidth(header, width) {
+                if (width === '' || width === 'auto') {
+                    columnSettings.widths[header] = 'auto';
+                } else {
+                    columnSettings.widths[header] = parseInt(width);
+                }
+            }
+            
+            function applyColumnSettings() {
+                // Aplicar configurações de visibilidade
+                const table = document.querySelector('#table-container table');
+                if (table) {
+                    const displayHeaders = getDisplayHeaders();
+                    
+                    // Aplicar visibilidade
+                    displayHeaders.forEach((header, index) => {
+                        const isVisible = columnSettings.visibility[header] !== false;
+                        const columnIndex = index + 1; // +1 porque CSS nth-child é 1-indexed
+                        
+                        // Ocultar/mostrar colunas no cabeçalho
+                        const headerCells = table.querySelectorAll(`thead th:nth-child(${columnIndex})`);
+                        headerCells.forEach(cell => {
+                            if (isVisible) {
+                                cell.classList.remove('column-hidden');
+                            } else {
+                                cell.classList.add('column-hidden');
+                            }
+                        });
+                        
+                        // Ocultar/mostrar colunas no corpo
+                        const bodyCells = table.querySelectorAll(`tbody td:nth-child(${columnIndex})`);
+                        bodyCells.forEach(cell => {
+                            if (isVisible) {
+                                cell.classList.remove('column-hidden');
+                            } else {
+                                cell.classList.add('column-hidden');
+                            }
+                        });
+                    });
+                    
+                    // Aplicar larguras
+                    displayHeaders.forEach((header, index) => {
+                        const width = columnSettings.widths[header];
+                        if (width && width !== 'auto') {
+                            const columnIndex = index + 1;
+                            const headerCells = table.querySelectorAll(`thead th:nth-child(${columnIndex})`);
+                            const bodyCells = table.querySelectorAll(`tbody td:nth-child(${columnIndex})`);
+                            
+                            [...headerCells, ...bodyCells].forEach(cell => {
+                                cell.style.width = `${width}px`;
+                                cell.style.minWidth = `${width}px`;
+                                cell.style.maxWidth = `${width}px`;
+                            });
+                        }
+                    });
+                }
+                
+                // Salvar configurações
+                saveColumnSettings();
+                
+                // Fechar modal
+                closeColumnControlsModal();
+            }
+            
+            function applyColumnSettingsOnLoad() {
+                // Aplicar configurações quando a tabela é carregada
+                const table = document.querySelector('#table-container table');
+                if (table) {
+                    const displayHeaders = getDisplayHeaders();
+                    
+                    // Aplicar visibilidade
+                    displayHeaders.forEach((header, index) => {
+                        const isVisible = columnSettings.visibility[header] !== false;
+                        const columnIndex = index + 1;
+                        
+                        if (!isVisible) {
+                            const headerCells = table.querySelectorAll(`thead th:nth-child(${columnIndex})`);
+                            const bodyCells = table.querySelectorAll(`tbody td:nth-child(${columnIndex})`);
+                            
+                            [...headerCells, ...bodyCells].forEach(cell => {
+                                cell.classList.add('column-hidden');
+                            });
+                        }
+                    });
+                    
+                    // Aplicar larguras
+                    displayHeaders.forEach((header, index) => {
+                        const width = columnSettings.widths[header];
+                        if (width && width !== 'auto') {
+                            const columnIndex = index + 1;
+                            const headerCells = table.querySelectorAll(`thead th:nth-child(${columnIndex})`);
+                            const bodyCells = table.querySelectorAll(`tbody td:nth-child(${columnIndex})`);
+                            
+                            [...headerCells, ...bodyCells].forEach(cell => {
+                                cell.style.width = `${width}px`;
+                                cell.style.minWidth = `${width}px`;
+                                cell.style.maxWidth = `${width}px`;
+                            });
+                        }
+                    });
+                }
+            }
+            
+            function resetColumnSettings() {
+                columnSettings = {
+                    visibility: {},
+                    widths: {}
+                };
+                
+                // Recriar controles
+                createVisibilityControls();
+                createWidthControls();
+                
+                // Aplicar reset na tabela
+                const table = document.querySelector('#table-container table');
+                if (table) {
+                    // Remover todas as classes de ocultação
+                    table.querySelectorAll('.column-hidden').forEach(cell => {
+                        cell.classList.remove('column-hidden');
+                    });
+                    
+                    // Remover larguras fixas
+                    table.querySelectorAll('th, td').forEach(cell => {
+                        cell.style.width = '';
+                        cell.style.minWidth = '';
+                        cell.style.maxWidth = '';
+                    });
+                }
+            }
+            
+            function loadColumnSettings() {
+                const saved = localStorage.getItem('column-settings');
+                if (saved) {
+                    try {
+                        columnSettings = JSON.parse(saved);
+                    } catch (e) {
+                        console.error('Erro ao carregar configurações de coluna:', e);
+                        columnSettings = { visibility: {}, widths: {} };
+                    }
+                }
+            }
+            
+            function saveColumnSettings() {
+                localStorage.setItem('column-settings', JSON.stringify(columnSettings));
+            }
+            
+            function addColumnResizeHandlers() {
+                const resizeHandles = document.querySelectorAll('.resize-handle');
+                
+                resizeHandles.forEach(handle => {
+                    let isResizing = false;
+                    let startX = 0;
+                    let startWidth = 0;
+                    let columnName = '';
+                    
+                    handle.addEventListener('mousedown', (e) => {
+                        isResizing = true;
+                        startX = e.clientX;
+                        columnName = handle.dataset.column;
+                        
+                        // Obter largura atual da coluna
+                        const columnIndex = parseInt(handle.dataset.index) + 1;
+                        const headerCell = document.querySelector(`thead th:nth-child(${columnIndex})`);
+                        startWidth = headerCell.offsetWidth;
+                        
+                        // Adicionar classes de redimensionamento
+                        document.body.classList.add('resizing');
+                        handle.classList.add('active');
+                        
+                        // Prevenir seleção de texto
+                        e.preventDefault();
+                    });
+                    
+                    document.addEventListener('mousemove', (e) => {
+                        if (!isResizing) return;
+                        
+                        const deltaX = e.clientX - startX;
+                        const newWidth = Math.max(50, startWidth + deltaX); // Largura mínima de 50px
+                        
+                        // Aplicar nova largura
+                        const columnIndex = parseInt(handle.dataset.index) + 1;
+                        const headerCells = document.querySelectorAll(`thead th:nth-child(${columnIndex})`);
+                        const bodyCells = document.querySelectorAll(`tbody td:nth-child(${columnIndex})`);
+                        
+                        [...headerCells, ...bodyCells].forEach(cell => {
+                            cell.style.width = `${newWidth}px`;
+                            cell.style.minWidth = `${newWidth}px`;
+                            cell.style.maxWidth = `${newWidth}px`;
+                        });
+                    });
+                    
+                    document.addEventListener('mouseup', () => {
+                        if (!isResizing) return;
+                        
+                        isResizing = false;
+                        document.body.classList.remove('resizing');
+                        handle.classList.remove('active');
+                        
+                        // Salvar nova largura
+                        const columnIndex = parseInt(handle.dataset.index) + 1;
+                        const headerCell = document.querySelector(`thead th:nth-child(${columnIndex})`);
+                        const newWidth = headerCell.offsetWidth;
+                        
+                        columnSettings.widths[columnName] = newWidth;
+                        saveColumnSettings();
+                    });
+                });
+            }
+            
+            // Funções globais para o modal
+            window.closeColumnControlsModal = closeColumnControlsModal;
+            window.toggleColumnVisibility = toggleColumnVisibility;
+            window.setColumnWidth = setColumnWidth;
+            window.applyColumnSettings = applyColumnSettings;
+            window.resetColumnSettings = resetColumnSettings;
 
             // --- Funções do Checklist ---
             function createChecklist() {
@@ -1349,8 +1677,16 @@
                 const thead = document.createElement('thead');
                 thead.className = 'bg-slate-50 sticky top-0';
                 let headerHtml = '<tr>';
-                displayHeaders.forEach(h => {
-                    headerHtml += `<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">${h}</th>`
+                displayHeaders.forEach((h, index) => {
+                    const isVisible = columnSettings.visibility[h] !== false;
+                    const width = columnSettings.widths[h];
+                    const widthStyle = width && width !== 'auto' ? `style="width: ${width}px; min-width: ${width}px; max-width: ${width}px;"` : '';
+                    const hiddenClass = !isVisible ? ' column-hidden' : '';
+                    
+                    headerHtml += `<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider table-header${hiddenClass}" ${widthStyle}>
+                        ${h}
+                        <div class="resize-handle" data-column="${h}" data-index="${index}"></div>
+                    </th>`;
                 });
                 thead.innerHTML = headerHtml + '</tr>';
                 
@@ -1396,6 +1732,12 @@
                 table.append(thead, tbody);
                 tableContainer.append(table);
                 dataContainer.append(tableContainer);
+                
+                // Aplicar configurações de coluna salvas
+                applyColumnSettingsOnLoad();
+                
+                // Adicionar funcionalidade de redimensionamento
+                addColumnResizeHandlers();
             }
 
             // --- Função de Tela Cheia ---
